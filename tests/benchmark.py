@@ -51,9 +51,10 @@ class BenchMarkWPS(object):
             stats=Stats(profile,stream=tmpBuffer)
             stats.sort_stats('time','calls')
             stats.print_stats(1)
-            match=re.findall(r'\bin\b(.*?)\bCPU\b',tmpBuffer.getvalue())
+            #match=re.findall(r'\bin\b(.*?)\bCPU\b',tmpBuffer.getvalue())
+            match=re.findall(r'\bin\b(.*?)\bseconds\b',tmpBuffer.getvalue())
            
-            print str(test[1].__doc__ )+":"+str(match[0])+" CPU Time"
+            print str(test[1].__doc__ )+":"+filter(lambda x: x.isdigit() or x==".", str(match[0]))+" CPU Time"
         
     def tests(self):
         """filters class methods and returns methods that will be run"""
