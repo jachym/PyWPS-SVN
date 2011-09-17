@@ -64,12 +64,12 @@ class WPSException(Exception):
             response = soapCls.getResponse(response)
 
     def __str__(self):
-
         error = "PyWPS %s: Locator: %s; Value: %s\n" % (self.code, self.locator, self.value)
         try:
             logFile.write(error)
         except:
             sys.stderr.write(error)
+
         return self.document.toprettyxml(indent='\t', newl='\n', encoding="utf-8")
 
 class MissingParameterValue(WPSException):

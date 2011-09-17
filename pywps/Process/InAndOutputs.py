@@ -22,10 +22,13 @@ Inputs and outputs of OGC WPS Processes
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
 
 import os,types,re, base64,logging
-import magic
 from pywps import Exceptions
 import sys
 
+try:
+    import magic
+except:
+    logging.debug("Could not import magic module")
 
 class Input:
     """Class WPS Input
