@@ -94,7 +94,7 @@ import Exceptions
 import Wps
 from Exceptions import *
 
-import sys, os, urllib, re, traceback, types, logging
+import logging, uuid
 
 # global variables
 METHOD_GET="GET"
@@ -170,13 +170,15 @@ class Pywps:
 
     languages = [DEFAULT_LANG]
     versions=[DEFAULT_VERSION]
+    UUID = None
 
     def __init__(self, method=METHOD_GET, configFiles=None):
         """Class constructor
         """
 
         # get settings
-        self._setLogFile()
+        self.setLogFile()
+        self.UUID = uuid.uuid1().__str__()
 
         self.languages = config.getConfigValue("wps","lang").split(",")
         DEFAULT_LANG = self.languages[0]
@@ -243,7 +245,7 @@ class Pywps:
         self.response = self.request.response
         return self.response
 
-    def _setLogFile(self):
+    def setLogFile(self):
         """Set :data:`logFile`. Default is sys.stderr
         """
         global logFile

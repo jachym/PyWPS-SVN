@@ -27,15 +27,22 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
 
+# set the sys.path to pywps
+import sys,os
+sys.path.append(
+    os.path.join(
+        os.path.dirname( os.path.abspath(__file__)) ,"..","..","..")
+    )
+
 import pywps
 from pywps import config
 from pywps.Wps import Request
-from pywps.Template import TemplateError
-import time,os,sys,tempfile,re,types, ConfigParser, base64, traceback
+import time,tempfile,re,types,  base64, traceback
 from shutil import copyfile as COPY
 from shutil import rmtree as RMTREE
 import logging
 import UMN
+import pickle, subprocess
 
 from xml.sax.saxutils import escape
 
@@ -157,6 +164,11 @@ class Execute(Request):
         
         UMN MapServer - mapscript handler
 
+    .. attribute :: spawned
+
+        Indicates, wheather this is running as child process of the main
+        process
+
     """
 
     # status variants
@@ -189,6 +201,8 @@ class Execute(Request):
     locator = 0
     statusTime = None
 
+    __pickleFileName = "state"
+
     # directories, which should be removed
     dirsToBeRemoved = []
 
@@ -202,7 +216,7 @@ class Execute(Request):
 
  
 
-    def __init__(self,wps, processes=None):
+    def __init__(self,wps, processes=None, spawned=False):
 
         Request.__init__(self,wps,processes)
 
@@ -213,10 +227,9 @@ class Execute(Request):
         self.statusTime = time.localtime()
         self.pid = os.getpid()
         self.status = None
-        self.id = self.makeSessionId()
-        self.outputFileName = os.path.join(config.getConfigValue("server","outputPath"),self.id+".xml")
-        self.statusLocation = config.getConfigValue("server","outputUrl")+"/"+self.id+".xml"
-
+        self.spawned = spawned
+        self.outputFileName = os.path.join(config.getConfigValue("server","outputPath"),self.getSessionId()+".xml")
+        self.statusLocation = config.getConfigValue("server","outputUrl")+"/"+self.getSessionId()+".xml"
 
         # rawDataOutput
         if len(self.wps.inputs["responseform"]["rawdataoutput"])>0:
@@ -290,6 +303,7 @@ class Execute(Request):
         # Description
         self.processDescription()
 
+
         # Asynchronous request
         # OGC 05-007r7 page 36, Table 50, note (a)
         # OGC 05-007r7 page 42
@@ -300,43 +314,25 @@ class Execute(Request):
 
             logging.debug("Store and Status are both set to True, let's be async")
 
-            # apache 1.x requires forking for asynchronous requests
-            serverSoft=os.getenv("SERVER_SOFTWARE")
-            forkingRequired=serverSoft and serverSoft.lower().startswith("apache/1.")
+            # save the WPS object the the file
+            self.pickleFile = open(os.path.join(self.workingDir, self.__pickleFileName),"w")
+            pickle.dump(wps,self.pickleFile)
+            self.pickleFile.close()
 
-            # FIXME: forking is always required, unless we find some better
-            # solution
-            forkingRequired = True
-            if forkingRequired:
-                try:
-                    # this is the parent process
-                    pid = os.fork()
-                    if pid:
-                        logging.debug("Main thread with pid %s ends here" % pid)
-                        # exit here
-                        return
-                    # this is the child process
-                    else:
-                        logging.debug("Child thread with pid %s contintues" % self.pid)
-                        pass
-                        # continue execution
+            # spawn this process
+            logging.info("Spawning process to the background")
+            subprocess.Popen([sys.executable,__file__,
+                os.path.join(self.workingDir, self.__pickleFileName)],
+                stdout=subprocess.PIPE, 
+                stderr=subprocess.PIPE
+            )
 
-                except OSError, e:
-                    logging.debug("Forking failed")
-                    traceback.print_exc(file=pywps.logFile)
-                    raise pywps.NoApplicableCode("Fork failed: %d (%s)\n" % (e.errno, e.strerror) )
+            logging.info("This is parent process, end.")
 
-            # this is child process, parent is already gone away
-            # redirect stdout, so that apache sends back the response immediately
-            logging.debug("Redirecting standard input and standard output to devnull")
+            # close the outputs ..
 
-            si = file(os.devnull, 'r')
-            so = file(os.devnull, 'a+')
-            se = file(os.devnull, 'a+', 0)
-            os.dup2(si.fileno(), sys.stdin.fileno())
-            os.dup2(so.fileno(), sys.stdout.fileno())
-            os.dup2(se.fileno(), sys.stderr.fileno())
-
+            # this is the end of parent process
+            return
 
         # attempt to execute
         try:
@@ -420,7 +416,7 @@ class Execute(Request):
             self.response = self.templateProcessor.__str__()
 
         # print status
-        if self.storeRequired and self.statusRequired:
+        if self.storeRequired and (self.statusRequired or self.spawned):
             pywps.response.response(self.response,
                                     self.outputFile,
                                     self.wps.parser.isSoap,
@@ -709,7 +705,8 @@ class Execute(Request):
         if self.storeRequired and (self.statusRequired or
                                    self.status == self.accepted or
                                    #self.status == self.succeeded or
-                                   self.status == self.failed):
+                                   self.status == self.failed or
+                                   self.spawned):
             pywps.response.response(self.response,
                                     self.outputFile,
                                     self.wps.parser.isSoap,
@@ -878,7 +875,7 @@ class Execute(Request):
         try:#Sometimes the responsedocument maybe empty, if so the  code will use outputsRequested=self.process.outputs.keys()
             for output in self.wps.inputs["responseform"]["responsedocument"]["outputs"]:
                 outputsRequested.append(output["identifier"])
-        except:
+        except Exception,e:
             pass
          
         #If no ouputs request is present then dump everything: Table 39 WPS 1.0.0 document    
@@ -1058,16 +1055,16 @@ class Execute(Request):
         except:
             pass
                     
-    def makeSessionId(self):
+    def getSessionId(self):
         """ Returns unique Execute session ID
 
         :rtype: string
         :return: unique id::
 
-            "pywps-"+str(int(time.time()*100))
+            "pywps-"+uuid.uuid1()
 
         """
-        return "pywps-"+str(int(time.time()*100))
+        return "pywps-"+self.wps.UUID
 
     def getSessionIdFromStatusLocation(self,statusLocation):
         """ Parses the statusLocation, and gets the unique session ID from it
@@ -1220,3 +1217,29 @@ class Execute(Request):
             #check 
             self.contentType = output.format["mimetype"]
             self.response = open(outFile,"rb")
+        
+"""
+Initialize Execute method with existing WPS instance
+
+This basicaly is used for asynchronous WPS executions
+"""
+if __name__ == "__main__":
+
+    # load the pickeled file from the disc
+    if len(sys.argv) and os.path.exists(sys.argv[1]):
+
+        wps = pickle.load(open(sys.argv[1]))
+        wps.setLogFile()
+
+        logging.info("Spawn process started, continuting to execute the process")
+
+        # fix some inputs
+        wps.inputs["responseform"]["responsedocument"]["status"] = False
+            
+        # create Execute instance, that's all
+        if isinstance(wps,pywps.Pywps):
+            try:
+                ex = Execute(wps,spawned = True)
+            except Exception,e:
+                logging.warning(e)
+            # that's all folks

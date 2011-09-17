@@ -47,8 +47,10 @@ class Process(WPSProcess):
         # for each feature
         featureCount = inLayer.GetFeatureCount()
         index = 0
+        import time
 
         while index < featureCount:
+            #time.sleep(1) # making things little bit slower
             self.status.set("Calculating buffer for feature %d from %d" % (index+1,featureCount),
                     (100*(index+1)/featureCount*1.0))
 

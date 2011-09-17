@@ -81,7 +81,6 @@ if __name__ == '__main__':
             )
         )[0],"tests","processes")
 
-    #os.environ["PYWPS_CFG"]=os.path.abspath(__file__,
     from wsgiref.simple_server import make_server
     srv = make_server('localhost', 8081, dispatchWps)
     srv.serve_forever()

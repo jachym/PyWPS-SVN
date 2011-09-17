@@ -184,8 +184,8 @@ class Request:
                                     locals(), [processSources.__name__])
                 except Exception,e:
                     logging.warning(
-                            "Could not import processes from %s: %s" % \
-                                    (repr(processSources.__name__), repr(e)))
+                            "Could not import processes from file %s from %s: %s" % \
+                                    (procModule, repr(processSources.__name__), repr(e)))
                 
                 for member in dir(procModule):
                     member = eval("procModule."+member)
@@ -299,9 +299,9 @@ class Request:
             it's instances, string with directory, where processes are
             located, ..."""
         global pywps
-        
+
         if processes and type(processes) == type(""):
-            logging.info("Reading processes from [%s]" % processes)
+            logging.info("Reading processes from directory [%s]" % processes)
             self.processes  = self._initFromDirectory(processes)
 
         # processes are some list -- use them directly

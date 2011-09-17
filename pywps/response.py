@@ -68,9 +68,6 @@ def response(response,targets,isSoap=False,contentType="application/xml"):
             response.close()
             response = open(response.name,"rb")
 
-    # return the response
-    return response.read()
-
 def _printResponseModPython(request, response, contentType="application/xml"):
 
     if contentType:
