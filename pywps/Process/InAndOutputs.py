@@ -341,7 +341,7 @@ class ComplexInput(Input):
 
     def __init__(self,identifier,title,abstract=None,
                 metadata=[],minOccurs=1,maxOccurs=1,
-                maxmegabites=5,formats=[{"mimeType":None}]):
+                maxmegabites=None,formats=[{"mimeType":None}]):
         """Class constructor"""
 
         Input.__init__(self,identifier,title,abstract=abstract,
