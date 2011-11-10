@@ -289,7 +289,16 @@ class Execute(Request):
             self.cleanEnv()
             raise pywps.InvalidParameterValue(
                 "status is true, but storeExecuteResponse is false")
-
+        
+        #check storeExecuteResponse agains asReference=true if outputs are present
+        if not self.process.storeSupported and "outputs" in self.wps.inputs["responseform"]["responsedocument"]:
+           #check the array for asreference': True
+               if len([item for item in  self.wps.inputs["responseform"]["responsedocument"]["outputs"] if ("asreference" in item and item["asreference"]==True) ]):
+                   self.cleanEnv()
+                   raise pywps.InvalidParameterValue("storeExecuteResponse is false, but output(s) are requested as reference(s)")
+           
+        
+            
         # HEAD
        
         self.templateProcessor.set("encoding",
@@ -991,7 +1000,8 @@ class Execute(Request):
             f = open(tmp[1],"w")
             f.write(str(output.value))
             f.close()
-            templateOutput["reference"] = escape(tmp[1])
+            outName = os.path.basename(tmp[1])
+            templateOutput["reference"] = escape(config.getConfigValue("server","outputUrl")+"/"+outName)
         # complex value
         else:
             outName = os.path.basename(output.value)
