@@ -1,10 +1,9 @@
 import os
 import sys
-from clutter.keysyms import Break
 
 pywpsPath = os.path.abspath(os.path.join(os.path.split(os.path.abspath(__file__))[0],".."))
-sys.path.append(pywpsPath)
-
+#sys.path.append(pywpsPath)
+sys.path.insert(0,pywpsPath)
 import pywps
 import pywps.Process
 import unittest

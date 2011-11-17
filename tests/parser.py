@@ -2,8 +2,8 @@ import os
 import sys
 
 pywpsPath = os.path.abspath(os.path.join(os.path.split(os.path.abspath(__file__))[0],".."))
-sys.path.insert(0,pywpsPath)
 #sys.path.append(pywpsPath)
+sys.path.insert(0,pywpsPath)
 
 import pywps
 import pywps.Process
@@ -208,4 +208,5 @@ class RequestParseTestCase(unittest.TestCase):
                         True)
 
 if __name__ == "__main__":
-    unittest.main()
+   suite = unittest.TestLoader().loadTestsFromTestCase(RequestParseTestCase)
+   unittest.TextTestRunner(verbosity=2).run(suite)

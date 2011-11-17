@@ -4,6 +4,7 @@ import sys
 pywpsPath = os.path.abspath(os.path.join(os.path.split(os.path.abspath(__file__))[0],".."))
 #sys.path.append(pywpsPath)
 sys.path.insert(0,pywpsPath)
+
 import pywps
 import pywps.Process
 import unittest
@@ -43,9 +44,9 @@ class RequestGetTestCase(unittest.TestCase):
 
         self._setFromEnv()
         mypywps = pywps.Pywps(pywps.METHOD_GET)
-        inputs = mypywps.parseRequest("service=wps&request=execute&version=1.0.0&identifier=assyncprocess&status=true&storeExecuteResponse=true")
+        inputs = mypywps.parseRequest("service=wps&request=execute&version=1.0.0&identifier=asyncprocess&status=true&storeExecuteResponse=true")
         self.assertEquals(mypywps.inputs["request"], "execute")
-        self.assertTrue("assyncprocess" in mypywps.inputs["identifier"])
+        self.assertTrue("asyncprocess" in mypywps.inputs["identifier"])
         mypywps.performRequest()
         xmldom = minidom.parseString(mypywps.response)
         self.assertTrue(mypywps.response)
