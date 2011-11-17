@@ -37,6 +37,7 @@ sys.path.append(
 import pywps
 from pywps import config
 from pywps.Wps import Request
+from pywps.Template import TemplateProcessor
 import time,tempfile,re,types,  base64, traceback
 from shutil import copyfile as COPY
 from shutil import rmtree as RMTREE
@@ -395,7 +396,6 @@ class Execute(Request):
 
                     # Response document
                     self.response = self.templateProcessor.__str__()
-
                 # if rawDataOutput is required
                 else:
                     self.setRawData()
@@ -766,7 +766,7 @@ class Execute(Request):
         """ Fill input of literal data, boolean value will be cast to str
         """
         literalInput["literaldata"] = str(wpsInput["value"])
-        literalInput["uom"] = str(input.uom)
+        literalInput["uom"] = input.uom
         return literalInput
 
     def _lineageComplexInput(self, wpsInput,complexInput):
@@ -855,7 +855,7 @@ class Execute(Request):
     def _lineageLiteralOutput(self, output, literalOutput):
         
         if len(output.uoms):
-                literalOutput["uom"] = str(output.uoms[0])
+                literalOutput["uom"] = output.uoms[0]
         return literalOutput
 
     def _lineageComplexOutput(self, output, complexOutput):
@@ -939,7 +939,7 @@ class Execute(Request):
 
     def _literalOutput(self, output, literalOutput):
 
-        literalOutput["uom"] = str(output.uom)
+        literalOutput["uom"] = output.uom
         literalOutput["dataType"]= self.getDataTypeReference(output)["type"]
         literalOutput["literaldata"] = str(output.value)
 
@@ -995,7 +995,23 @@ class Execute(Request):
 
         # copy the file to output directory
         # literal value
-        if output.type == "LiteralValue":
+        if output.type == "LiteralValue" or output.type== "BoundingBoxValue":
+            if output.type=="BoundingBoxValue":
+                bboxTemplateFileOut = os.path.join(os.path.split(self.templateFile)[0],"inc","Execute_Data_Outputs.tmpl")
+                bboxTemplateProcessor = TemplateProcessor(bboxTemplateFileOut,compile=True)
+                #Call private method to generate a proper dictionary
+                bboxOutput=self._bboxOutput(output,bboxOutput={})
+                [bboxTemplateProcessor.set(key, value) for (key,value) in bboxOutput.items()]
+                #No prettyprint to avoid problem with re
+                bboxXMLOut=bboxTemplateProcessor.__str__().replace("  ","").replace("\n","")
+                #The template will generete bboxXML wrapped in the data tag
+                try:
+                    output.value=re.findall(r'<wps:Data>(.*?)</wps:Data>', bboxXMLOut)[0]
+                except Exception, e:
+                    #log the error and continue as simple string
+                    logging.debug("Problems generating the BBOX XML content asReference")
+                    traceback.print_exc(file=pywps.logFile)
+                    
             tmp = tempfile.mkstemp(prefix="%s-%s" % (output.identifier,self.pid),dir=os.path.join(config.getConfigValue("server","outputPath")),text=True)
             f = open(tmp[1],"w")
             f.write(str(output.value))

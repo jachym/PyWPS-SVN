@@ -16,7 +16,6 @@ from pywps import Exceptions
 from os import name as OSNAME
 from pywps import Soap 
 
-EMPTYPARAMREGEX = re.compile('( \w+="")|( \w+="None")')
 
 def response(response,targets,isSoap=False,contentType="application/xml"):
     """
@@ -44,8 +43,6 @@ def response(response,targets,isSoap=False,contentType="application/xml"):
         response = response.__str__()
 
 
-    if type(response) != types.FileType:
-        response = re.sub(EMPTYPARAMREGEX,"",response)
 
     # for each file in file descriptor
     for f in targets:
