@@ -49,6 +49,7 @@ dist =  setup(
         download_url="http://pywps.wald.intevation.org",
         description=doclines[0],
         platforms=["any"],
+        zip_safe=False,
         classifiers= classifiers,
         long_description = "\n".join(doclines[1:]),
 
