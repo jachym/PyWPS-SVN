@@ -975,6 +975,7 @@ class ComplexOutput(Output):
             
             stringIOFile=open(stringIOName,"w")
             stringIOFile.write(value.getvalue())
+            stringIOFile.close()
             self.value=stringIOName
             
         # TODO add more types, like Arrays and lists for example
