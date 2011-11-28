@@ -11,7 +11,7 @@ future
 import types
 from sys import stdout as STDOUT
 from sys import stderr as STDERR
-import re
+import re, logging, cStringIO
 from pywps import Exceptions
 from os import name as OSNAME
 from pywps import Soap 
@@ -56,6 +56,11 @@ def response(response,targets,isSoap=False,contentType="application/xml"):
         elif types.FileType == type(f):
             _printResponseFile(f,response,contentType)
 
+        # pywps.Ftp.FTP object 
+        elif isinstance(f, pywps.Ftp.FTP):
+             _sendResponseFTP(f,response)
+             logging.debug("Response document successfuly send to ftp server")
+
         # java servlet response
         elif OSNAME == "java" :
             _printResponseJava(f,response,contentType)
@@ -90,6 +95,27 @@ def _printResponseFile(fileOut, response, contentType="application/xml"):
 
     if fileOut != STDOUT:
         fileOut.close()
+
+def _sendResponseFTP(ftpConnection, response):
+    try:
+        ftpConnection.connect()
+        ftpConnection.relogin()
+        # In case the response is a file, we can send it directly
+        if type(response) == types.FileType:
+            ftpConnection.storbinary("STOR " + ftpConnection.fileName, response)
+        else:
+            # We need a read-only memory file desciptor
+            responseFile = cStringIO.StringIO(response)
+            # Send the file to the ftp server use the filename specified in the FTP object
+            ftpConnection.storbinary("STOR " + ftpConnection.fileName, responseFile)
+            responseFile.close()
+            
+        ftpConnection.close()
+    except Exception, e:
+        traceback.print_exc(file=pywps.logFile)
+        self.cleanEnv()
+        raise pywps.NoApplicableCode("FTP error: " +  e.__str__())
+
 
 def _printResponseJava( resp, response,contentType="application/xml"):
     if contentType:

@@ -157,7 +157,7 @@ class BBoxProcess(WPSProcess):
         self.bboxout.setValue(self.bboxin.value.coords)
 
 class AsyncProcess(WPSProcess):
-    """This process runs in asynchronous way"""
+    """This process runs in assynchronous way"""
 
     def __init__(self):
         WPSProcess.__init__(self, identifier =
@@ -166,6 +166,19 @@ class AsyncProcess(WPSProcess):
     def execute(self):
         import time
         time.sleep(2)
+
+class FlagsProcess(WPSProcess):
+    """Dummy process with --flags to test WSDL special char removal"""
+    def __init__(self):
+        WPSProcess.__init__(self, identifier ="flagsprocess",title="Dummy process with flags as InputOutput",storeSupported=True, statusSupported=True)
+        self.flag1In = self.addLiteralInput(identifier="-flag1In",title="Literal input flag1")
+        self.flag2In = self.addLiteralInput(identifier="--flag2In",title="Literal input flag2")
+        self.flag1Out = self.addLiteralOutput(identifier="-flag1Out",title="Literal output flag1")
+        self.flag2Out = self.addLiteralOutput(identifier="--flag2Out",title="Literal output flag2")
+    
+    def execute(self):
+        self.flag1Out.setValue(self.flag1In.getValue())
+        self.flag2Out.setValue(self.flag2In.getValue())
 
 class LineageReturn(WPSProcess):
     """Lineage returning process, testing lineage with multiple inputs per identifier """
@@ -184,4 +197,18 @@ class LineageReturn(WPSProcess):
          self.bboxin = self.addBBoxInput(identifier="bboxin",title="BBox in")
     def execute(self):
         pass
+
+class ReferenceDefaultReturn(WPSProcess):
+    """Returns contents as Reference if not indicated by user"""
+    def __init__(self):
+        WPSProcess.__init__(self, identifier="referencedefault",title="Returns ouputs as references, unless defined by the user in the request",storeSupported=True, statusSupported=True)
+        self.vectorOut = self.addComplexOutput(identifier="vectorout",title="Vector file",formats = [{"mimeType":"text/xml"}],asReference=True)
+        self.stringOut = self.addLiteralOutput(identifier="string",title="String data out",type = type(""),asReference=True)
+        self.bboxOut = self.addBBoxOutput(identifier="bboxout",title="BBox out",asReference=True)
+        
+    def execute(self):
+        import StringIO
+        self.vectorOut.setValue(StringIO.StringIO("<foo><bacon/></foo>"))
+        self.stringOut.setValue("stringTest")
+        self.bboxOut.setValue([[-11,-12],[13,14]])
         

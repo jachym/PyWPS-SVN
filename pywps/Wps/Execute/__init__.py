@@ -4,7 +4,6 @@
     prefix of temporary pywps directory
 
 """
-
 # Author:	Jachym Cepicky
 #        	http://les-ejk.cz
 #               jachym at les-ejk dot cz
@@ -28,21 +27,26 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
 
 # set the sys.path to pywps
-import sys,os
-sys.path.append(
-    os.path.join(
-        os.path.dirname( os.path.abspath(__file__)) ,"..","..","..")
-    )
+__all__ = ["UMN"]
 
+import sys,os
+#sys.path.append(
+#    os.path.join(
+#        os.path.dirname( os.path.abspath(__file__)) ,"..","..","..")
+#    )
+
+
+sys.path[0]= os.path.join(os.path.dirname( os.path.abspath(__file__)) ,"..","..","..")
 import pywps
+import pywps.Ftp
 from pywps import config
 from pywps.Wps import Request
 from pywps.Template import TemplateProcessor
-import time,tempfile,re,types,  base64, traceback
+import time,tempfile,re,types, base64, traceback,string
 from shutil import copyfile as COPY
 from shutil import rmtree as RMTREE
 import logging
-import UMN
+from pywps.Wps.Execute import UMN
 import pickle, subprocess
 
 from xml.sax.saxutils import escape
@@ -202,7 +206,7 @@ class Execute(Request):
     locator = 0
     statusTime = None
 
-    __pickleFileName = "state"
+    __pickleFileName = "state-pywps"
 
     # directories, which should be removed
     dirsToBeRemoved = []
@@ -246,12 +250,39 @@ class Execute(Request):
         self.storeRequired = False
         if self.wps.inputs["responseform"]["responsedocument"].has_key("storeexecuteresponse"):
             if self.wps.inputs["responseform"]["responsedocument"]["storeexecuteresponse"]:
-                try:
-                    self.outputFile = open(self.outputFileName,"w")
-                except Exception, e:
-                    traceback.print_exc(file=pywps.logFile)
-                    self.cleanEnv()
-                    raise pywps.NoApplicableCode(e.__str__())
+                outputType = "file" 
+                outputPath = config.getConfigValue("server","outputPath")
+                # Check for ftp storage
+                if string.find(outputPath.lower(), "ftp://", 0, 6) == 0:
+                    outputType = "ftp"
+                    
+                if outputType == "file":
+                    try:
+                        self.outputFile = open(self.outputFileName,"w")
+                    except Exception, e:
+                        traceback.print_exc(file=pywps.logFile)
+                        self.cleanEnv()
+                        raise pywps.NoApplicableCode(e.__str__())
+                # Set up the response document ftp object
+                
+                elif outputType == "ftp":
+                    
+                    try:
+                        ftpHost = outputPath[6:]
+                        ftplogin = config.getConfigValue("server","ftplogin")
+                        ftppasswd= config.getConfigValue("server","ftppasswd")
+                        ftpConnection = pywps.Ftp.FTP(ftpHost,port=6666)
+                        ftpConnection.setFileName(os.path.basename(self.outputFileName))
+                        ftpConnection.login(ftplogin, ftppasswd)
+                        # Close to avoid time out, the response call will reconnect and relogin
+                        ftpConnection.close()
+                        self.outputFile = ftpConnection
+                    except Exception, e:
+                        traceback.print_exc(file=pywps.logFile)
+                        self.cleanEnv()
+                        raise pywps.NoApplicableCode("FTP error: " +  e.__str__())
+
+
                 self.storeRequired = True
 
         # is lineage required ?
@@ -290,8 +321,8 @@ class Execute(Request):
             self.cleanEnv()
             raise pywps.InvalidParameterValue(
                 "status is true, but storeExecuteResponse is false")
-        
-        #check storeExecuteResponse agains asReference=true if outputs are present
+      
+       #check storeExecuteResponse agains asReference=true
         if not self.process.storeSupported and "outputs" in self.wps.inputs["responseform"]["responsedocument"]:
            #check the array for asreference': True
                if len([item for item in  self.wps.inputs["responseform"]["responsedocument"]["outputs"] if ("asreference" in item and item["asreference"]==True) ]):
@@ -323,20 +354,21 @@ class Execute(Request):
                     self.process.identifier)
 
             logging.debug("Store and Status are both set to True, let's be async")
-
             # save the WPS object the the file
-            self.pickleFile = open(os.path.join(self.workingDir, self.__pickleFileName),"w")
+            tmpPath=config.getConfigValue("server","tempPath")
+            self.pickleFile = open(os.path.join(tmpPath, self.__pickleFileName+"-"+str(self.wps.UUID)),"w")
+            logging.debug("PickleFile:%s" % self.pickleFile.name)
             pickle.dump(wps,self.pickleFile)
             self.pickleFile.close()
 
             # spawn this process
             logging.info("Spawning process to the background")
+            self.outputFile.name
             subprocess.Popen([sys.executable,__file__,
-                os.path.join(self.workingDir, self.__pickleFileName)],
+                os.path.join(tmpPath, self.__pickleFileName+"-"+str(self.wps.UUID)),self.outputFile.name],
                 stdout=subprocess.PIPE, 
                 stderr=subprocess.PIPE
             )
-
             logging.info("This is parent process, end.")
 
             # close the outputs ..
@@ -349,10 +381,8 @@ class Execute(Request):
 
             # init environment variable
             self.initEnv()
-            
             # download and consolidate data
             self.consolidateInputs()
-            
             # set output data attributes defined in the request
             self.consolidateOutputs()
             # Execute
@@ -391,8 +421,8 @@ class Execute(Request):
                     # fill outputs
                     self.processOutputs()
                     
-                    if self.umn:
-                        self.umn.save()
+                    #if self.umn:
+                    #    self.umn.save()
 
                     # Response document
                     self.response = self.templateProcessor.__str__()
@@ -479,7 +509,9 @@ class Execute(Request):
             input.onProblem = self.onInputProblem
             # maximum input file size must not be greater, than the one,
             # defined in the global config file
+            
             if input.type == "ComplexValue":
+                #if maxFile not present or bigger than value in config value
                 if not input.maxFileSize or input.maxFileSize > maxFileSize:
                     input.maxFileSize = maxFileSize
 
@@ -519,32 +551,33 @@ class Execute(Request):
                         respOut = out
 
                 if respOut:
+                    poutputList=dir(poutput)
                     # asReference
                     if respOut.has_key("asreference") and \
-                        "asReference" in dir(poutput):
+                        "asReference" in poutputList:
                         poutput.asReference = respOut["asreference"]
 
                     #jmdj mimetype and not mimeType
                     if respOut.has_key("mimetype") and \
-                        "format" in dir(poutput):
+                        "format" in poutputList:
                         if respOut["mimetype"] != '':
                             poutput.format["mimetype"] = respOut["mimetype"]
 
                     # schema
                     if respOut.has_key("schema") and \
-                        "format" in dir(poutput):
+                        "format" in poutputList:
                         if respOut["schema"] != '':
                             poutput.format["schema"] = respOut["schema"]
                    
                     # encoding
                     if respOut.has_key("encoding") and \
-                        "format" in dir(poutput):
+                        "format" in poutputList:
                         if respOut["encoding"] != '':
                             poutput.format["encoding"] = respOut["encoding"]
                     
                     # uom
                     if respOut.has_key("uom") and \
-                        "uom" in dir(poutput):
+                        "uom" in poutputList:
                         if respOut["uom"] != '':
                             poutput.uom = respOut["uom"]
                      
@@ -991,64 +1024,132 @@ class Execute(Request):
         bboxOutput["maxy"] = output.value[1][1]
         return bboxOutput
 
+    def _storeFileOnFTPServer(self, filePath, fileName, ftpURL, ftpPort,ftpLogin, ftpPasswd):
+        """The method sends a file located at filePath to a FTP server with url ftpURL using ftplogin and ftppasswd as authentification.
+            The vairiable fileName is the name of the file on the ftp server.
+        """
+       
+        ftp =  pywps.Ftp.FTP(ftpURL, ftpPort)
+        ftp.login(ftpLogin, ftpPasswd)
+        file = open(filePath, "r")
+        ftp.storbinary("STOR " + fileName, file)
+        ftp.quit()
+        file.close()
+
+
     def _asReferenceOutput(self,templateOutput, output):
-
-        # copy the file to output directory
-        # literal value
-        if output.type == "LiteralValue" or output.type== "BoundingBoxValue":
-            if output.type=="BoundingBoxValue":
-                bboxTemplateFileOut = os.path.join(os.path.split(self.templateFile)[0],"inc","Execute_Data_Outputs.tmpl")
-                bboxTemplateProcessor = TemplateProcessor(bboxTemplateFileOut,compile=True)
-                #Call private method to generate a proper dictionary
-                bboxOutput=self._bboxOutput(output,bboxOutput={})
-                [bboxTemplateProcessor.set(key, value) for (key,value) in bboxOutput.items()]
-                #No prettyprint to avoid problem with re
-                bboxXMLOut=bboxTemplateProcessor.__str__().replace("  ","").replace("\n","")
-                #The template will generete bboxXML wrapped in the data tag
+        outputPath = config.getConfigValue("server","outputPath")
+        # As default we suppose local file output
+        outputType = "file"
+        # Check if ftp or file storage is set in the configfile
+        if string.find(outputPath.lower(), "ftp://", 0, 6) == 0:
+            outputType = "ftp"
+ 
+        # search for ftp identifier in string in outputPath and get the ftp login and password
+        # TODO: Check if login or password are set, in case they are empty, anonymous is 
+        # used as default
+        if outputType == "ftp":
+            try:
+                ftpLogin = config.getConfigValue("server","ftplogin")
+                ftpPasswd= config.getConfigValue("server","ftppasswd")
                 try:
-                    output.value=re.findall(r'<wps:Data>(.*?)</wps:Data>', bboxXMLOut)[0]
-                except Exception, e:
-                    #log the error and continue as simple string
-                    logging.debug("Problems generating the BBOX XML content asReference")
-                    traceback.print_exc(file=pywps.logFile)
-                    
-            tmp = tempfile.mkstemp(prefix="%s-%s" % (output.identifier,self.pid),dir=os.path.join(config.getConfigValue("server","outputPath")),text=True)
-            f = open(tmp[1],"w")
-            f.write(str(output.value))
-            f.close()
-            outName = os.path.basename(tmp[1])
-            templateOutput["reference"] = escape(config.getConfigValue("server","outputUrl")+"/"+outName)
-        # complex value
+                    ftpPort=config.getConfigValue("server","ftpport")
+                except:
+                    ftpPort=21    
+            except Exception, e:
+                traceback.print_exc(file=pywps.logFile)
+                self.cleanEnv()
+                raise pywps.NoApplicableCode("FTP error: " +  e.__str__())
+                
+            ftpURL= outputPath[6:]
+
+            # copy the file to output directory or send it to an ftp server
+            # literal value
+        #str: BoundingBoxValue
+        #ATTENTION to the FTP code
+        if output.type == "LiteralValue" or output.type== "BoundingBoxValue":
+                #if BounfingBoxValue we'll apply the Execute_Data_Outputs.tml
+                if output.type=="BoundingBoxValue":
+                    bboxTemplateFileOut = os.path.join(os.path.split(self.templateFile)[0],"inc","Execute_Data_Outputs.tmpl")
+                    bboxTemplateProcessor = TemplateProcessor(bboxTemplateFileOut,compile=True)
+                    #Call private method to generate a proper dictionary
+                    bboxOutput=self._bboxOutput(output,bboxOutput={})
+                    [bboxTemplateProcessor.set(key, value) for (key,value) in bboxOutput.items()]
+                    #No prettyprint to avoid problem with re
+                    bboxXMLOut=bboxTemplateProcessor.__str__().replace("  ","").replace("\n","")
+                    #The template will generete bboxXML wrapped in the data tag
+                    try:
+                        output.value=re.findall(r'<wps:Data>(.*?)</wps:Data>', bboxXMLOut)[0]
+                    except Exception,e:
+                        #log the error and continue as simple string
+                        logging.debug("Problems generating the BBOX XML content asReference")
+                        traceback.print_exc(file=pywps.logFile)
+                if outputType == "ftp":
+                    tmp = tempfile.mkstemp(prefix="%s-%s" % (output.identifier,self.pid),text=True)
+                    f = open(tmp[1],"w")
+                    f.write(str(output.value))
+                    f.close()
+                    outFile = tmp[1]
+                    outName = os.path.basename(outFile)
+                    self._storeFileOnFTPServer(tmp[1], os.path.basename(tmp[1]),ftpURL, ftpPort, ftpLogin, ftpPasswd)
+                    #templateOutput["reference"] = escape(tmp[1])
+                    templateOutput["reference"] = escape(config.getConfigValue("server","outputPath")+"/" +outName)
+                else:
+                    tmp = tempfile.mkstemp(prefix="%s-%s" % (output.identifier,self.pid),dir=os.path.join(config.getConfigValue("server","outputPath")),text=True)
+                    f = open(tmp[1],"w")
+                    f.write(str(output.value))
+                    f.close()
+                    outFile = tmp[1]
+                    outName = os.path.basename(outFile)
+                    templateOutput["reference"] = escape(config.getConfigValue("server","outputUrl")+"/" +outName)
+                
+            # complex value
         else:
-            outName = os.path.basename(output.value)
-            outSuffix = os.path.splitext(outName)[1]
-            tmp = tempfile.mkstemp(suffix=outSuffix,
-                                    prefix="%s-%s" % (output.identifier,self.pid),
-                                    dir=os.path.join(config.getConfigValue("server","outputPath")),text=True)
-            outFile = tmp[1]
-            outName = os.path.basename(outFile)
+                outName = os.path.basename(output.value)
+                outSuffix = os.path.splitext(outName)[1]
+                if outputType == "ftp":
+                    tmp = tempfile.mkstemp(suffix=outSuffix, prefix="%s-%s" % (output.identifier,self.pid),text=True)
+                else:
+                    tmp = tempfile.mkstemp(suffix=outSuffix,
+                                        prefix="%s-%s" % (output.identifier,self.pid),
+                                        dir=os.path.join(config.getConfigValue("server","outputPath")),text=True)
 
-            if not self._samefile(output.value,outFile):
-                COPY(os.path.abspath(output.value), outFile)
-            templateOutput["reference"] = escape(config.getConfigValue("server","outputUrl")+"/"+outName)
-            output.value = outFile
+                outFile = tmp[1]
+                outName = os.path.basename(outFile)
+                if outputType == "ftp":
+                    self._storeFileOnFTPServer(os.path.abspath(output.value), outName + outSuffix, ftpURL, ftpPort,ftpLogin, ftpPasswd)
+                    #data sent to FTP and stored in the local output
+                    COPY(os.path.abspath(output.value), outFile)
+                elif not self._samefile(output.value,outFile):
+                    COPY(os.path.abspath(output.value), outFile)
+                
+                #If ftp then the path to file is the outputpath otherwise it has to be the outputURL
+                if outputType == "ftp":
+                    templateOutput["reference"] = escape(config.getConfigValue("server","outputPath")+"/"+outName)
+                else:
+                    templateOutput["reference"] = escape(config.getConfigValue("server","outputUrl")+"/"+outName)    
+                
+                output.value = outFile
 
-            # mapscript supported and the mapserver should be used for this
-            # output
-            # redefine the output 
-            
-            #Mapserver needs the format information, therefore checkMimeType has to be called before
-            self.checkMimeTypeOutput(output)
-            
-            if self.umn and output.useMapscript:
-                owsreference = self.umn.getReference(output)
-                if owsreference:
-                    templateOutput["reference"] = escape(owsreference)
+                # mapscript supported and the mapserver should be used for this
+                # output
+                # redefine the output 
+                
+                #Mapserver needs the format information, therefore checkMimeType has to be called before
+                self.checkMimeTypeOutput(output)
+                
+                if self.umn and output.useMapscript:
+                    self.umn.save()
+                    owsreference = self.umn.getReference(output)
+                    if owsreference:
+                        templateOutput["reference"] = escape(owsreference)
 
-            
-            templateOutput["mimetype"] = output.format["mimetype"]
-            templateOutput["schema"] = output.format["schema"]
-            templateOutput["encoding"]=output.format["encoding"]
+                
+                templateOutput["mimetype"] = output.format["mimetype"]
+                templateOutput["schema"] = output.format["schema"]
+                templateOutput["encoding"]=output.format["encoding"]
+      
+
         return templateOutput
 
     def _samefile(self, src, dst):
@@ -1184,6 +1285,7 @@ class Execute(Request):
     def cleanEnv(self):
         """ Removes temporary created files and dictionaries
         """
+        
         os.chdir(self.curdir)
         def onError(*args):
             logging.error("Could not remove temporary dir")
@@ -1194,6 +1296,13 @@ class Execute(Request):
                 RMTREE(dir, onerror=onError)
                 pass
             self.dirsToBeRemoved.remove(dir)
+        if self.spawned:
+            try:
+                tmpPath=config.getConfigValue("server","tempPath")
+                os.remove(os.path.join(tmpPath, self.__pickleFileName+"-"+self.wps.UUID))
+            except Exception, e:
+                logging.debug(str(e))
+                    
 
 
     def calculateMaxInputSize(self):
@@ -1250,15 +1359,13 @@ Initialize Execute method with existing WPS instance
 This basicaly is used for asynchronous WPS executions
 """
 if __name__ == "__main__":
-
     # load the pickeled file from the disc
-    if len(sys.argv) and os.path.exists(sys.argv[1]):
 
+    if len(sys.argv) and os.path.exists(sys.argv[1]):
         wps = pickle.load(open(sys.argv[1]))
         wps.setLogFile()
-
+            
         logging.info("Spawn process started, continuting to execute the process")
-
         # fix some inputs
         wps.inputs["responseform"]["responsedocument"]["status"] = False
             
@@ -1269,3 +1376,9 @@ if __name__ == "__main__":
             except Exception,e:
                 logging.warning(e)
             # that's all folks
+    else:
+        try:
+            raise pywps.NoApplicableCode("Problems loading the pickeled file:%s check if path is correct" % sys.argv[1])
+        except Exception,e:
+            open(sys.argv[2],"w").write(e.getResponse())
+            

@@ -24,6 +24,7 @@ from pywps.Wps import Request
 from pywps import config
 from pywps.Template import TemplateError
 import os,types,traceback
+import logging
 
 class DescribeProcess(Request):
     """
@@ -52,7 +53,6 @@ class DescribeProcess(Request):
         #
 
         self.templateProcessor.set("Processes",self.processesDescription())
-
         self.response = self.templateProcessor.__str__()
 
         return
@@ -217,13 +217,14 @@ class DescribeProcess(Request):
                         valrecord["discrete"] = 1
                         valrecord["value"] = val
                     processInOutput["allowedValues"].append(valrecord)
+                    logging.debug(str(processInOutput["allowedValues"]))
         except AttributeError:
             pass
 
         return
 
     def complexValue(self,inoutput,processInOutput):
-        """Format complex value attributes
+        """Format complex value attributes, it also changes None format to application/x-empty
 
         :param inoutput: :class:`pywps.Process.InAndOutputs.Input` or 
             :class:`pywps.Process.InAndOutputs.Output`
@@ -243,6 +244,14 @@ class DescribeProcess(Request):
                                         "encoding":format["encoding"],
                                         "schema":format["schema"]
                                             })
+        #Check for None values, that are replaces by application/x-empty
+        if processInOutput["mimetype"] is None:
+            processInOutput["mimetype"]="application/x-empty"
+        
+        #Jmdj: format["mimetype"] is None --> FILTER ; for format in processInOutput["Formats"] --> INTERACTOR
+        #format.__setitem__("mimetype","application/x-empty") --> SETTING KEY,VALUE (it cant'be format["mimetype"]="foo")
+        [format.__setitem__("mimetype","application/x-empty") for format in processInOutput["Formats"] if format["mimetype"] is None]
+        
         return
 
     def bboxValue(self,input,processInput):
@@ -261,4 +270,5 @@ class DescribeProcess(Request):
             processInput["CRSs"].append({"crs":crs})
 
         return
+
 

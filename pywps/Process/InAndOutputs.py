@@ -346,7 +346,7 @@ class ComplexInput(Input):
 
         Input.__init__(self,identifier,title,abstract=abstract,
                 metadata=[],minOccurs=minOccurs,maxOccurs=maxOccurs,type="ComplexValue")
-        
+        #If maxmegabites not present, then it will be set in  consolidateInputs()
         if maxmegabites:
             self.maxFileSize = float(maxmegabites)*1024*1024
         else:
@@ -383,8 +383,7 @@ class ComplexInput(Input):
         if not input.has_key("type") and\
                 (input["value"].find("http://") == 0 or input["value"].find("http%3A%2F%2F") == 0):
             input["asReference"] = True
-            
-        #self.value = input["value"]
+
         # download data
         
         if input.has_key("asReference") and input["asReference"] == True:      
@@ -817,7 +816,7 @@ class LiteralOutput(Output):
 
     def __init__(self,identifier,title,abstract=None,
                 metadata=[], uoms=(), dataType = types.StringType, 
-                default=None, asReference=False):
+                default=None,asReference=False):
         """Class Constructor"""
         Output.__init__(self,identifier,title,abstract=abstract,
                 metadata=[],type="LiteralValue",asReference=asReference)
@@ -977,12 +976,10 @@ class ComplexOutput(Output):
             stringIOFile.write(value.getvalue())
             stringIOFile.close()
             self.value=stringIOName
-            
         # TODO add more types, like Arrays and lists for example
         else:
             raise Exception("Output type '%s' of '%s' output not known, not FileName, File or (c)StringIO object" %\
                     (type(value),self.identifier))
-    
     
     
     def checkMimeTypeIn(self):
