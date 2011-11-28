@@ -14,11 +14,11 @@ import urllib
 from xml.dom import minidom
 import base64
 import sys
-
 import tempfile
 
 class ExceptionTestCase(unittest.TestCase):
-    tiffurl="http://rsg.pml.ac.uk/wps/testdata/srtm_algarve.tif" #3.2 megas
+    tiffurl="http://rsg.pml.ac.uk/wps/testdata/srtm_NW_iberia.tif" #17megas
+    #tiffurl="http://rsg.pml.ac.uk/wps/testdata/srtm_algarve.tif" #3.2 megas
     wfsurl = "http://rsg.pml.ac.uk/geoserver2/ows?service=WFS&version=1.0.0&request=GetFeature&typeName=rsg:areas_pw&maxFeatures=1"
     owsns = "http://www.opengis.net/ows/1.1"
     
@@ -31,11 +31,10 @@ class ExceptionTestCase(unittest.TestCase):
         #Silence sterr otherwise the promopt is flooded with error message from exceptions
         sys.stderr = open('/dev/null',"w") 
     
-    
-    def testMaxFile(self):
-        """Text exception raise from MaxFileSize"""
+    def testMaxFileProcess(self):
+        """Text exception raise from MaxFileSize (process and cfg file)"""
         #Calling complexRaster process that has datainput with maxfilezie=2.0megas below 3mega of pywps.cfg
-        
+       
         self._setFromEnv()
         
         mypywps = pywps.Pywps(pywps.METHOD_GET)
@@ -105,7 +104,5 @@ class ExceptionTestCase(unittest.TestCase):
 
 if __name__ == "__main__":
     #unittest.main()
-   #suite = unittest.TestLoader().loadTestsFromTestCase(ExceptionTestCase)
-   #unittest.TextTestRunner(verbosity=2).run(suite)
    suite = unittest.TestLoader().loadTestsFromTestCase(ExceptionTestCase)
    unittest.TextTestRunner(verbosity=2).run(suite)

@@ -23,11 +23,23 @@ else:
 
 import tempfile
 
+#FTP server function called by test19FTPSupport     
+def ftpServer(ftpHost,ftpPort,ftpLogin,ftpPasswd,ftpPath,ftpPerm):
+    from pyftpdlib import ftpserver
+    authorizer = ftpserver.DummyAuthorizer()
+    authorizer.add_user(ftpLogin, ftpPasswd, ftpPath, ftpPerm)
+    handler = ftpserver.FTPHandler
+    handler.authorizer = authorizer
+    address = (ftpHost, ftpPort)
+    ftpd = ftpserver.FTPServer(address, handler)
+    ftpd.serve_forever()
+
+
 class RequestGetTestCase(unittest.TestCase):
     inputs = None
     getcapabilitiesrequest = "service=wps&request=getcapabilities"
     getdescribeprocessrequest = "service=wps&request=describeprocess&version=1.0.0&identifier=dummyprocess"
-    getdescribeprocessrequestall = "service=wps&request=describeprocess&version=1.0.0&identifier=all"
+    getdescribeprocessallrequest = "service=wps&request=describeprocess&version=1.0.0&identifier=all"
     getexecuterequest = "service=wps&request=execute&version=1.0.0&identifier=dummyprocess&datainputs=[input1=20;input2=10]"
     #wfsurl = "http://www2.dmsolutions.ca/cgi-bin/mswfs_gmap?version=1.0.0&request=getfeature&service=wfs&typename=park"
     wfsurl = "http://rsg.pml.ac.uk/geoserver2/ows?service=WFS&version=1.0.0&request=GetFeature&typeName=rsg:areas_pw&maxFeatures=1"
@@ -35,13 +47,28 @@ class RequestGetTestCase(unittest.TestCase):
     wpsns = "http://www.opengis.net/wps/1.0.0"
     owsns = "http://www.opengis.net/ows/1.1"
     ogrns = "http://ogr.maptools.org/"
+    
+    #FTP parameters for test20FTPSupport
+    #Pure PyWPS ftp configuration
+    ftpLogin="user"
+    ftpPasswd="12345"
+    ftpPort=6666 # something above 1024 to avoid root permission
+    outputPath="ftp://localhost"
+    outputURL="ftp://localhost"
+    #ftpServer variables
+    ftpPath=pywps.config.getConfigValue("server","tempPath")
+    ftpHost="127.0.0.1"
+    ftpPerm="elradfmw"
+    
     xmldom = None
 
+    def setUp(self):
+        #Silence PyWPS Warning:       from pywps.Process.Process import WPSProcess
+        sys.stderr=open("/dev/null","w")
 
     def testT00Assync(self):
         """Test assynchronous mode for the first time"""
        
-
         self._setFromEnv()
         mypywps = pywps.Pywps(pywps.METHOD_GET)
         inputs = mypywps.parseRequest("service=wps&request=execute&version=1.0.0&identifier=asyncprocess&status=true&storeExecuteResponse=true")
@@ -125,7 +152,7 @@ class RequestGetTestCase(unittest.TestCase):
                 len(getpywps.inputs["identifier"]))
        
         getpywps = pywps.Pywps(pywps.METHOD_GET)
-        getpywps.parseRequest(self.getdescribeprocessrequestall)
+        getpywps.parseRequest(self.getdescribeprocessallrequest)
         getpywps.performRequest()
         xmldom = minidom.parseString(getpywps.response)
         self.assertEquals(len(xmldom.getElementsByTagName("ProcessDescription")),len(getpywps.request.processes))
@@ -342,6 +369,7 @@ class RequestGetTestCase(unittest.TestCase):
     
     def test14ParseExecuteResponseDocumentGET(self):
          """Return a response document that only containts the requested ouputs """
+         self._setFromEnv()
          import urllib
         
          getpywps = pywps.Pywps(pywps.METHOD_GET)
@@ -410,7 +438,7 @@ class RequestGetTestCase(unittest.TestCase):
         self.assertTrue(len(dataInputsDom)>0)
         
         inputDom=dataInputsDom[0].getElementsByTagNameNS(self.wpsns,"Input")
-        #print postxmldom.toxml()         
+        
         #Check lineage size (number elements)
         self.assertEquals(len(inputDom),6)
         
@@ -446,11 +474,125 @@ class RequestGetTestCase(unittest.TestCase):
         upperSet=set([len(coord.split(" ")) for coord in [item.getElementsByTagNameNS(self.owsns,"UpperCorner")[0].childNodes[0].nodeValue for item in bboxDom]])
         self.assertEquals(len(dimSet.difference(lowerSet)),0) #0
         self.assertEquals(len(dimSet.difference(upperSet)),0) #0
-  
+    
+    def test17LiteralBBOXasReference(self):
+        """BBOX and Literal as ReferenceOutput"""
+        self._setFromEnv()
+        #Testing BBOX as reference
+        getpywps=pywps.Pywps(pywps.METHOD_GET)
+        getinputs = getpywps.parseRequest("service=wps&version=1.0.0&request=Execute&identifier=bboxprocess&datainputs=[bboxin=12,45,56,67]&responsedocument=bboxout=@asReference=true")
+        getpywps.performRequest(getinputs)
+        xmldom = minidom.parseString(getpywps.response)
+        self.assertTrue(len(xmldom.getElementsByTagNameNS(self.wpsns,"Reference"))>0)
+        #Testing 2 string output
+        getinputs = getpywps.parseRequest("service=wps&version=1.0.0&request=execute&identifier=literalprocess&datainputs=[int=1;string=spam%40foo.com;float=1.1;zeroset=0.0;bool=False]&responsedocument=bool=@asReference=True;string=@asReference=True")
+        getpywps.performRequest(getinputs)
+
+        xmldom = minidom.parseString(getpywps.response)
+        self.assertTrue(len(xmldom.getElementsByTagNameNS(self.wpsns,"Reference"))==2)
+    
+    def test18ReferenceAsDefault(self):
+        """asReference output as default and user overwrite"""
+        self._setFromEnv()
+        
+        getpywps=pywps.Pywps(pywps.METHOD_GET)
+        getinputs = getpywps.parseRequest("service=wps&version=1.0.0&request=Execute&identifier=referencedefault")
+        getpywps.performRequest(getinputs)
+        xmldom = minidom.parseString(getpywps.response)
+        self.assertTrue(len(xmldom.getElementsByTagNameNS(self.wpsns,"Reference"))==3)
+
+        #Testing overwrite by responsedocument
+        getinputs = getpywps.parseRequest("service=wps&version=1.0.0&request=Execute&identifier=referencedefault&responsedocument=vectorout=@asReference=False;string=@asReference=False;bboxout=@asReference=False")
+        getpywps.performRequest(getinputs)
+        xmldom = minidom.parseString(getpywps.response)
+        self.assertTrue(len(xmldom.getElementsByTagNameNS(self.wpsns,"Reference"))==0)
+
+    def test19AssyncSpawned(self):
+        """Spawned async subprocess"""
+        #NOTE: testT00Assync, just checks the status document. If the spawned failed the status document will retain in ProcessAccepted
+        self._setFromEnv()
+        import time
+              
+        getpywps=pywps.Pywps(pywps.METHOD_GET)
+        getinputs = getpywps.parseRequest("service=wps&version=1.0.0&request=Execute&identifier=ultimatequestionprocess&storeExecuteResponse=True&status=True")
+        getpywps.performRequest(getinputs)
+            
+        xmldom = minidom.parseString(getpywps.response)
+        executeNode=xmldom.getElementsByTagNameNS(self.wpsns,"ExecuteResponse")
+        #Checking for ExecuteResponse
+        self.assertTrue(len(executeNode)>0)
+        #building file path
+        baseFile=os.path.basename(executeNode[0].getAttribute("statusLocation"))
+        outputPath = pywps.config.getConfigValue("server","outputPath")
+        
+        #sleep for a while.....
+        time.sleep(10)
+        
+        statusdom=minidom.parse(open(os.path.join(outputPath,baseFile)))
+        
+        self.assertTrue(bool(statusdom.getElementsByTagNameNS(self.wpsns,"ProcessStarted")) or bool(statusdom.getElementsByTagNameNS(self.wpsns,"ProcessSucceeded")))
+        #BAD
+        #bool(statusdom.getElementsByTagNameNS(wpsns,"ProcessAccepted"))
+        
+    def test20FTPSupport(self):
+        """Testing FTP support"""
+        #NOTE: pyftpdlib uses a pure Python thread to work, if using the normal Thread class thins get blocked
+        #Better to use mutiprocessor or a suprocess.Popen call 
+        try:
+            from pyftpdlib import ftpserver
+        except:
+            assert False, "Please install pyftpdlib from http://code.google.com/p/pyftpdlib/" 
+        
+        from multiprocessing import Process
+        import time,os.path
+        import hashlib
+        import pywps
+       
+        #PyWPS configuration -- setConfiguration added to in SVN - pywps-soap:1260
+        pywps.config.setConfigValue("server","outputPath", self.outputPath)
+        pywps.config.setConfigValue("server","outputUrl",self.outputURL)
+        pywps.config.setConfigValue("server","ftplogin",self.ftpLogin)
+        pywps.config.setConfigValue("server","ftppasswd",self.ftpPasswd)
+        #ATTENTION EVERYTHING HAS TO BE STRING OTHERWISE IT DOESNT WORK
+        pywps.config.setConfigValue("server","ftpport",str(self.ftpPort))
+        
+        p=Process(target=ftpServer,args=(self.ftpHost,self.ftpPort,self.ftpLogin,self.ftpPasswd,self.ftpPath,self.ftpPerm,))
+        p.start()
+        time.sleep(2)
+        #running the WPS
+        getpywps=pywps.Pywps(pywps.METHOD_GET)
+        getinputs = getpywps.parseRequest("service=wps&version=1.0.0&request=Execute&identifier=referencedefault&responsedocument=vectorout=@asReference=True;string=@asReference=True;bboxout=@asReference=True")
+        getpywps.performRequest(getinputs)
+        xmldom = minidom.parseString(getpywps.response)
+        #time.sleep(40)# give some time to sync all code, maybe it's not necessary
+        p.terminate()
+        #SEE: if there is some error
+        exceptionText=xmldom.getElementsByTagNameNS(self.owsns,"Reference")
+        if len(exceptionText)>0:
+            #We have an error, probably no FTP connection
+            self.assertTrue(False,self.exceptionText.childNodes[0].nodeValue)
+        
+        #RESET FTP parameters
+        pywps.config.loadConfiguration()
+        
+        #ASSIGNED PROCESS OUTPUT
+        # 2nd part output interactor, 1st part lambda case ComplexOutput then open file and read content
+        processOutputs=list(map(lambda output:open(output.value).read() if isinstance(output,pywps.Process.InAndOutputs.ComplexOutput) else output.value,getpywps.request.process.outputs.values() ))
+        processOutputsMD5=[hashlib.md5(item).hexdigest() for item in processOutputs]
+        
+        #FTP PROCESS OUTPUT
+        referenceNodes=xmldom.getElementsByTagNameNS(self.wpsns,"Reference")
+        urlList=[node.getAttribute("href") for node in referenceNodes]
+        #getContent from folfer, FTP is already dead
+        outputFTP=[open(os.path.join(self.ftpPath,os.path.basename(url))).read() for url in urlList]
+        outputFTPMD5=[hashlib.md5(item).hexdigest() for item in outputFTP]
+        #assertFalse (empty array)
+        self.assertFalse(bool([item in outputFTP for item in outputFTPMD5 if not item]))
+
+            
     def _setFromEnv(self):
         os.putenv("PYWPS_PROCESSES", os.path.join(pywpsPath,"tests","processes"))
         os.environ["PYWPS_PROCESSES"] = os.path.join(pywpsPath,"tests","processes")
-        
 
 if __name__ == "__main__":
    #unittest.main()

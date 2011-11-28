@@ -2,7 +2,6 @@ import os
 import sys
 
 pywpsPath = os.path.abspath(os.path.join(os.path.split(os.path.abspath(__file__))[0],".."))
-#sys.path.append(pywpsPath)
 sys.path.insert(0,pywpsPath)
 
 import pywps
@@ -23,11 +22,11 @@ class RequestParseTestCase(unittest.TestCase):
     getpywps = None
     postpywps = None
 
-    def setUp(self):
-        pass
 
     def testParseGetCapabilities(self):
         """Test if GetCapabilities request is parsed and if POST and GET methods do get the same result"""
+        
+        self._setFromEnv()
         getpywps = pywps.Pywps(pywps.METHOD_GET)
         postpywps = pywps.Pywps(pywps.METHOD_POST)
         getinputs = getpywps.parseRequest("service=wps&request=getcapabilities")
@@ -47,6 +46,8 @@ class RequestParseTestCase(unittest.TestCase):
     def testParseDescribeProcess(self):
         """Test if DescribeProcess request is parsed and if POST and GET
         methods are producing the same result"""
+        
+        self._setFromEnv()
         getpywps = pywps.Pywps(pywps.METHOD_GET)
         postpywps = pywps.Pywps(pywps.METHOD_POST)
         getinputs = getpywps.parseRequest("service=wps&request=describeprocess&version=1.0.0&identifier=dummyprocess")
@@ -66,6 +67,8 @@ class RequestParseTestCase(unittest.TestCase):
     ######################################################################################
     def testParseExecuteNoInput(self):
         """Test if Execute request is parsed, no input given"""
+        
+        self._setFromEnv()
         getpywps = pywps.Pywps(pywps.METHOD_GET)
         postpywps = pywps.Pywps(pywps.METHOD_POST)
         getinputs = getpywps.parseRequest("service=wps&version=1.0.0&request=execute&identifier=noinputprocess")
@@ -84,7 +87,7 @@ class RequestParseTestCase(unittest.TestCase):
         """Test if Execute request is parsed, literal data inputs, including '@' in GET """
         
         #NOTE: Unittest changed after SVN: 1146 to check for the parsing of "@"
-        
+        self._setFromEnv()
         getpywps = pywps.Pywps(pywps.METHOD_GET)
         postpywps = pywps.Pywps(pywps.METHOD_POST)
         executeRequestFile = open(os.path.join(pywpsPath,"tests","requests","wps_execute_request-literalinput.xml"))
@@ -106,8 +109,9 @@ class RequestParseTestCase(unittest.TestCase):
         self.assertTrue(getinputs["datainputs"][2]["value"],"1.1")
 
     def testParseExecuteComplexInputAsReference(self):
-
         """Test if Execute request is parsed, complex data inputs, given as reference"""
+        
+        self._setFromEnv()
         getpywps = pywps.Pywps(pywps.METHOD_GET)
         postpywps = pywps.Pywps(pywps.METHOD_POST)
         executeRequestFile = open(os.path.join(pywpsPath,"tests","requests","wps_execute_request-complexinput-as-reference.xml"))
@@ -127,6 +131,8 @@ class RequestParseTestCase(unittest.TestCase):
 
     def testParseBBoxInput(self):
         """Parsing Bounding Box Input"""
+        
+        self._setFromEnv()
         getpywps = pywps.Pywps(pywps.METHOD_GET)
         postpywps = pywps.Pywps(pywps.METHOD_POST)
         executeRequestFile = open(os.path.join(pywpsPath,"tests","requests","wps_execute_request-bbox.xml"))
@@ -142,6 +148,7 @@ class RequestParseTestCase(unittest.TestCase):
 
     def testParseRawDataOutput(self):
         """Test, if PyWPS parsers RawData output request correctly"""
+        self._setFromEnv()
         postpywps = pywps.Pywps(pywps.METHOD_POST)
         getpywps = pywps.Pywps(pywps.METHOD_GET)
         executeRequestFile = open(os.path.join(pywpsPath,"tests","requests","wps_execute_request-complexinput-direct-rawdata-output.xml"))
@@ -156,7 +163,7 @@ class RequestParseTestCase(unittest.TestCase):
 
     def testParseExecuteComplexInputDirectly(self):
         """Test if Execute request is parsed, complex data inputs, given as """
-
+        self._setFromEnv()
         postpywps = pywps.Pywps(pywps.METHOD_POST)
         executeRequestFile = open(os.path.join(pywpsPath,"tests","requests","wps_execute_request-complexinput-direct.xml"))
         postinputs = postpywps.parseRequest(executeRequestFile)
@@ -206,6 +213,10 @@ class RequestParseTestCase(unittest.TestCase):
         self.assertTrue(postinputs["responseform"]["responsedocument"]["outputs"][1]["asreference"] == \
                         postinputs["responseform"]["responsedocument"]["outputs"][1]["asreference"] == \
                         True)
+
+    def _setFromEnv(self):
+        os.putenv("PYWPS_PROCESSES", os.path.join(pywpsPath,"tests","processes"))
+        os.environ["PYWPS_PROCESSES"] = os.path.join(pywpsPath,"tests","processes")
 
 if __name__ == "__main__":
    suite = unittest.TestLoader().loadTestsFromTestCase(RequestParseTestCase)
