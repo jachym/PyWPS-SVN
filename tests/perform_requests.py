@@ -64,8 +64,8 @@ class RequestGetTestCase(unittest.TestCase):
 
     def setUp(self):
         #Silence PyWPS Warning:       from pywps.Process.Process import WPSProcess
-        sys.stderr=open("/dev/null","w")
-
+        #sys.stderr=open("/dev/null","w")
+        pass
     def testT00Assync(self):
         """Test assynchronous mode for the first time"""
        
@@ -515,8 +515,7 @@ class RequestGetTestCase(unittest.TestCase):
               
         getpywps=pywps.Pywps(pywps.METHOD_GET)
         getinputs = getpywps.parseRequest("service=wps&version=1.0.0&request=Execute&identifier=ultimatequestionprocess&storeExecuteResponse=True&status=True")
-        getpywps.performRequest(getinputs)
-            
+        getpywps.performRequest(getinputs)   
         xmldom = minidom.parseString(getpywps.response)
         executeNode=xmldom.getElementsByTagNameNS(self.wpsns,"ExecuteResponse")
         #Checking for ExecuteResponse
@@ -527,7 +526,6 @@ class RequestGetTestCase(unittest.TestCase):
         
         #sleep for a while.....
         time.sleep(10)
-        
         statusdom=minidom.parse(open(os.path.join(outputPath,baseFile)))
         
         self.assertTrue(bool(statusdom.getElementsByTagNameNS(self.wpsns,"ProcessStarted")) or bool(statusdom.getElementsByTagNameNS(self.wpsns,"ProcessSucceeded")))
