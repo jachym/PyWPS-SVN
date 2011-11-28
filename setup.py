@@ -5,7 +5,7 @@ PyWPS is simple cgi set of scripts, which (nearly) fills standard of OGC
 way how geoinformation operations should be served via networks.
 
 PyWPS provides environment for writing own scripts with help of GIS GRASS
-modules (http://grass.itc.it). User of PyWPS can easily focuse on writing
+modules (http://grass.osgeo.it). User of PyWPS can easily focuse on writing
 own GRASS-scripts, without taking care on how the data will be imported and
 served back to the client. Providing GRASS funktionality on the Internet
 should be as easy as possible.
@@ -48,8 +48,8 @@ dist =  setup(
         license = "http://www.gnu.org/licenses/gpl.html",
         download_url="http://pywps.wald.intevation.org",
         description=doclines[0],
-        platforms=["any"],
         zip_safe=False,
+        platforms=["any"],
         classifiers= classifiers,
         long_description = "\n".join(doclines[1:]),
 
@@ -129,6 +129,3 @@ if not dryRun and install and not os.environ.has_key("FAKEROOTKEY"):
         print "Please run pywps to compile templates"
 else:
     print "dry-run only, templates are not complied"
-
-
-

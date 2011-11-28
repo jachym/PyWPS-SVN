@@ -6,14 +6,14 @@ Web Processing Service (OpenGIS(r) Web Processing Service - OGC 05-007r7)
 version 1.0.0 from 2007-06-08
 
 Target of this application is to bring functionality of GIS GRASS
-[http://grass.itc.it] to the World Wide Web - it should work like
+[http://grass.osgeo.it] to the World Wide Web - it should work like
 wrapper for modules of this GIS. Though GRASS was at the first place in the
 focus, it is not necessary to use it's modules - you can use any program
 you can script in Python or other language.
 
-The first version was written with support of Deutsche Bundesstiftung
-Umwelt, Osnabrueck, Germany on the spring 2006. SVN server is hosted by
-GDF-Hannover, Hannover, Germany.
+This first version was written with support of Deutsche Bundesstiftung
+Umwelt, Osnabrueck, Germany on the spring 2006. SVN server was hosted by
+GDF-Hannover, Hannover, Germany; today at Intevation GmbH, Germany.
 
 Current development is supported mainly by:
 Help Service - Remote Sensing s.r.o
@@ -35,8 +35,8 @@ $Id: wps.py 871 2009-11-23 14:25:09Z jachym $
 __version__ = "3.0-svn"
 
 
-# Author:	Jachym Cepicky
-#        	http://les-ejk.cz
+# Author:    Jachym Cepicky
+#            http://les-ejk.cz
 # License:
 #
 # Web Processing Service implementation
