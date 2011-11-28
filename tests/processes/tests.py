@@ -13,6 +13,7 @@ class LiteralProcess(WPSProcess):
     def __init__(self):
         WPSProcess.__init__(self, identifier = "literalprocess",
                 title="Literal process",
+                storeSupported=True,
                 metadata=[{"title":"Foobar","href":"http://foo/bar"},
                           {"title":"Barfoo","href":"http://bar/foo"},
                           {"title":"Literal process"},
@@ -35,7 +36,7 @@ class LiteralProcess(WPSProcess):
                                                  type = type(0.0))
 
         self.zeroInSet = self.addLiteralInput(identifier="zeroset",
-                                                 title="Zero data input",
+                                                title="Zero data input",
                                                  type = type(0.0))
         
         self.boolIn = self.addLiteralInput(identifier="bool",
@@ -53,7 +54,7 @@ class LiteralProcess(WPSProcess):
                                                  title="Float data out",
                                                  type = type(0.0))
         self.boolOut = self.addLiteralOutput(identifier="bool",
-                                                 title="Boolean data out",
+                                                title="Boolean data out",
                                                  type = type(False))
         
     def execute(self):
@@ -147,7 +148,7 @@ class BBoxProcess(WPSProcess):
     """This process defines bounding box in- and outputs"""
 
     def __init__(self):
-        WPSProcess.__init__(self, identifier = "bboxprocess",title="BBox process")
+        WPSProcess.__init__(self, identifier = "bboxprocess",title="BBox process",storeSupported=True, statusSupported=True)
 
         self.bboxin = self.addBBoxInput(identifier="bboxin",title="BBox in")
         self.bboxout = self.addBBoxOutput(identifier="bboxout",title="BBox out")
