@@ -234,7 +234,6 @@ class Execute(Request):
         self.status = None
         self.spawned = spawned
         self.outputFileName = os.path.join(config.getConfigValue("server","outputPath"),self.getSessionId()+".xml")
-        self.statusLocation = config.getConfigValue("server","outputUrl")+"/"+self.getSessionId()+".xml"
 
         # rawDataOutput
         if len(self.wps.inputs["responseform"]["rawdataoutput"])>0:
@@ -284,6 +283,9 @@ class Execute(Request):
 
 
                 self.storeRequired = True
+
+        if self.storeRequired:
+            self.statusLocation = config.getConfigValue("server","outputUrl")+"/"+self.getSessionId()+".xml"
 
         # is lineage required ?
         lineageRequired = False
@@ -455,7 +457,7 @@ class Execute(Request):
             self.response = self.templateProcessor.__str__()
 
         # print status
-        if self.storeRequired and (self.statusRequired or self.spawned):
+        if self.storeRequired or self.spawned:
             pywps.response.response(self.response,
                                     self.outputFile,
                                     self.wps.parser.isSoap,
@@ -744,8 +746,7 @@ class Execute(Request):
         self.response = self.templateProcessor.__str__()
 
         # print status
-        if self.storeRequired and (self.statusRequired or
-                                   self.status == self.accepted or
+        if self.storeRequired and (self.status == self.accepted or
                                    #self.status == self.succeeded or
                                    self.status == self.failed or
                                    self.spawned):

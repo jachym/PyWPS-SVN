@@ -64,7 +64,7 @@ class SchemaTestCase(unittest.TestCase):
         schemaExecute=etree.XMLSchema(schemaDocExecute)
         
         mypywps = pywps.Pywps(pywps.METHOD_GET)
-        inputs = mypywps.parseRequest("service=wps&request=execute&version=1.0.0&identifier=ultimatequestionprocess&status=false&storeExecuteResponse=false")
+        inputs = mypywps.parseRequest("service=wps&request=execute&version=1.0.0&identifier=ultimatequestionprocess&status=false&storeExecuteResponse=true")
         mypywps.performRequest()
         
         #First parse
