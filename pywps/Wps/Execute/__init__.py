@@ -298,7 +298,7 @@ class Execute(Request):
         self.initProcess()
 
         if UMN.mapscript:
-            self.umn = UMN.UMN(self.process)
+            self.umn = UMN.UMN(self.process, self.getSessionId())
 
         # check rawdataoutput against process
         if self.rawDataOutput and self.rawDataOutput not in self.process.outputs:
