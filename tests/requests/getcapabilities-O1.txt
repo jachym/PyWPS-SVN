@@ -1,0 +1,1 @@
+Service=WPS&Version=1.0.0&Request=GetCapabilities&Language=en&acceptVersions=1.0.0&foo=bar
