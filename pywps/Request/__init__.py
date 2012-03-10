@@ -1,16 +1,38 @@
 __all__ = ["GetCapabilities"]
+NSMAP = {
+        'xsi': 'http://www.w3.org/2001/XMLSchema-instance',
+        'xlink': 'http://www.w3.org/1999/xlink',
+        'ows': 'http://www.opengis.net/ows/1.1',
+        'wps': 'http://www.opengis.net/wps/1.0.0'
+}
 
 class Request:
-    """WPS Request class"""
+    """WPS Request class
+
+    .. attribute:: language
+    .. attribute:: service
+    .. attribute:: request
+    .. attribute:: validate
+    """
 
     language = None
     service = None
     request = None
+    validate = False
 
     def __init__(self,request,method):
 
         if method == "POST":
-            self._parseRequestPOST(request)
+            try:
+                from lxml import etree
+            except ImportError:
+                import xml.etree.ElementTree as etree
+
+            parser = etree.XMLParser(ns_clean = True,
+                                    # TODO huge_tree,
+                                    # ...
+                                    )
+            self._parseRequestPOST(etree.fromstring(request,parser))
 
         else:
 

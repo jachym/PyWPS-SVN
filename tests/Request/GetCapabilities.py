@@ -3,6 +3,7 @@
 
 import unittest
 
+
 import sys,os
 sys.path.insert(0,os.path.join(
     os.path.dirname(
@@ -15,6 +16,7 @@ REQUESTS = os.path.abspath(
                 os.path.abspath(__file__)
                     ),"..","requests")
             )
+
 
 from pywps.Request.GetCapabilities import GetCapabilities
 
@@ -48,19 +50,19 @@ class TestGetCapabilitiesRequest(unittest.TestCase):
 class TestGetCapabilitiesRequestPOST(TestGetCapabilitiesRequest):
     def setUp(self):
 
-        request =""
+        request = open(os.path.join(REQUESTS,"getcapabilities-01.xml"),"r").read()
         self.request = GetCapabilities(request,"POST")
 
 class TestGetCapabilitiesRequestGET(TestGetCapabilitiesRequest):
     def setUp(self):
 
-        request = open(os.path.join(REQUESTS,"getcapabilities-O1.txt"),"r").read()
+        request = open(os.path.join(REQUESTS,"getcapabilities-01.txt"),"r").read()
         self.request = GetCapabilities(request,"GET")
 
 def suite():
 
     suite = unittest.TestSuite()
-    #suite.addTest(unittest.makeSuite(TestGetCapabilitiesRequestPOST))
+    suite.addTest(unittest.makeSuite(TestGetCapabilitiesRequestPOST))
     suite.addTest(unittest.makeSuite(TestGetCapabilitiesRequestGET))
     return suite
 
