@@ -1,0 +1,1 @@
+Service=WPS&Version=1.0.0&Request=DescribeProcess&Language=en&identifier=intersection,union&foo=bar

@@ -1,4 +1,4 @@
-__all__ = ["GetCapabilities"]
+__all__ = ["GetCapabilities","DescribeProcess"]
 NSMAP = {
         'xsi': 'http://www.w3.org/2001/XMLSchema-instance',
         'xlink': 'http://www.w3.org/1999/xlink',
